@@ -1,0 +1,61 @@
+System Architect Prompt: Unified Sprint Tracking Application
+Role: You are a Senior Full-Stack Engineer and System Architect.
+Objective: Scaffold a web application to replace a legacy manual Excel collation process. The app will allow five development teams (Philomath, Zesture, Titans, Alpha, and Artisans) to submit user stories via a web form and provide a centralized reporting dashboard for management.
+
+1. Tech Stack Requirements
+Backend: Node.js with Express.
+
+Frontend: React with Tailwind CSS and shadcn/ui for a high-contrast, professional dashboard.
+
+Database: PostgreSQL (to be managed via the PostgreSQL MCP server).
+
+Authentication: Multi-user login with Role-Based Access Control (RBAC).
+
+2. Database Schema & Relations
+Design the schema based on the following refined relations derived from the analyzed sprint files :
+
+teams Table: id (PK), name (Philomath, Zesture, Titans, Alpha, Artisans), area_path (e.g., UCMGen3\Team 2 - Zesture).
+
+users Table: id (PK), username, password_hash, role (Admin, Lead, Developer), team_id (FK to teams).
+
+user_stories Table:
+
+story_id (PK - the Work Item ID from the files, e.g., 205185).
+
+sprint_id (e.g., "Sprint 26-04").
+
+team_id (FK to teams).
+
+work_item_type (User Story, Issue, or Feature).
+
+title, assigned_to, state, tags.
+
+test_plan_url, test_run_url.
+
+status_remarks (Captures qualitative data from the "Status/ Remarks" Excel column).
+
+created_at, updated_at.
+
+3. Functional Requirements
+RBAC Logic:
+
+Developers: Can only submit and edit stories for their assigned team. The form must auto-populate the Area Path based on their team_id.
+
+Admins/Leads: Access to the Master Dashboard to view all team progress.
+
+Reporting Dashboard:
+
+View Section: A dynamic table with multi-select filters for Team Name and Sprint Number.
+
+Download Section: A dedicated export utility to generate Sprint-wise or Team-wise reports in CSV/Excel format.
+
+4. Execution Instructions for Antigravity Agent
+Phase 1: Implementation Plan. Provide a detailed implementation_plan.md and a granular task.md checklist.
+
+Phase 2: Scaffolding. Initialize the project structure using /create commands.
+
+Phase 3: Database. Generate the DDL scripts and use the MCP tool execute_sql to initialize the PostgreSQL schema.
+
+Phase 4: Verification. Use the Browser Agent to autonomously test the login flow, form submission, and report filtering. Provide a Walkthrough Artifact as proof of completion.
+
+Wait for my approval of the Implementation Plan before proceeding to code generation.
