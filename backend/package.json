@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "node one-time-setup.js",
+    "start:normal": "node server.js",
     "seed": "node seed.js",
     "dev": "node --watch server.js"
   },
