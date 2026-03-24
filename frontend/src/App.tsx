@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import DeveloperForm from './pages/DeveloperForm';
@@ -144,7 +144,7 @@ const PrivateRoute = ({ children, roles = [] }) => {
 function App() {
     return (
         <AuthProvider>
-            <BrowserRouter>
+            <HashRouter>
                 <Routes>
                     <Route path="/login" element={<Login />} />
 
@@ -174,7 +174,7 @@ function App() {
 
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
-            </BrowserRouter>
+            </HashRouter>
         </AuthProvider>
     );
 }
