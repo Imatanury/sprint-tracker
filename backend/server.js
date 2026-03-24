@@ -4,28 +4,33 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import storiesRoutes from './routes/stories.js';
 import usersRoutes from './routes/users.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { DatabaseSync } from 'node:sqlite';
+import pkg from 'pg';
+const { Pool } = pkg;
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Database connection setup using built-in node:sqlite
-const dbPath = path.join(__dirname, 'sprint_tracker.db');
-const db = new DatabaseSync(dbPath);
-console.log('Connected to SQLite database (node:sqlite)');
+// Database connection setup using PostgreSQL
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sprint_tracker',
+});
 
-// Attach db to request object
+pool.on('connect', () => {
+    console.log('Connected to PostgreSQL database');
+});
+
+pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+    process.exit(-1);
+});
+
+// Attach db pool to request object
 app.use((req, res, next) => {
-    req.db = db;
+    req.db = pool;
     next();
 });
 
@@ -34,10 +39,9 @@ app.use('/api', authRoutes);
 app.use('/api', storiesRoutes);
 app.use('/api', usersRoutes);
 
-app.get('/api/teams', (req, res) => {
+app.get('/api/teams', async (req, res) => {
     try {
-        const stmt = req.db.prepare('SELECT * FROM teams');
-        const rows = stmt.all();
+        const { rows } = await req.db.query('SELECT * FROM teams');
         res.json(rows);
     } catch (error) {
         console.error('Teams fetch error', error);

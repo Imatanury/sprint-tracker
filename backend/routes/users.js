@@ -13,15 +13,14 @@ const adminOnly = (req, res, next) => {
 };
 
 // GET /api/users — list all users (Admin only)
-router.get('/users', verifyAuth, adminOnly, (req, res) => {
+router.get('/users', verifyAuth, adminOnly, async (req, res) => {
     try {
-        const stmt = req.db.prepare(`
+        const { rows } = await req.db.query(`
             SELECT u.id, u.username, u.role, u.team_id, t.name as team_name
             FROM users u
             LEFT JOIN teams t ON u.team_id = t.id
             ORDER BY u.role, u.username
         `);
-        const rows = stmt.all();
         res.json(rows);
     } catch (error) {
         console.error('Users fetch error', error);
@@ -49,19 +48,19 @@ router.post('/users', verifyAuth, adminOnly, async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(password, salt);
 
-        const stmt = req.db.prepare(
-            `INSERT INTO users (username, password_hash, role, team_id) VALUES (?, ?, ?, ?)`
+        const result = await req.db.query(
+            `INSERT INTO users (username, password_hash, role, team_id) VALUES ($1, $2, $3, $4) RETURNING id`,
+            [username, hash, role, team_id || null]
         );
-        const result = stmt.run(username, hash, role, team_id || null);
 
         res.status(201).json({
-            id: result.lastInsertRowid,
+            id: result.rows[0].id,
             username,
             role,
             team_id: team_id || null
         });
     } catch (error) {
-        if (error.message?.includes('UNIQUE')) {
+        if (error.code === '23505') { // Postgres unique violation code
             return res.status(409).json({ message: 'Username already exists' });
         }
         console.error('Create user error', error);
@@ -70,7 +69,7 @@ router.post('/users', verifyAuth, adminOnly, async (req, res) => {
 });
 
 // DELETE /api/users/:id — remove a user (Admin only)
-router.delete('/users/:id', verifyAuth, adminOnly, (req, res) => {
+router.delete('/users/:id', verifyAuth, adminOnly, async (req, res) => {
     try {
         const userId = parseInt(req.params.id, 10);
 
@@ -79,10 +78,9 @@ router.delete('/users/:id', verifyAuth, adminOnly, (req, res) => {
             return res.status(400).json({ message: 'Cannot delete your own account' });
         }
 
-        const stmt = req.db.prepare('DELETE FROM users WHERE id = ?');
-        const result = stmt.run(userId);
+        const result = await req.db.query('DELETE FROM users WHERE id = $1', [userId]);
 
-        if (result.changes === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
