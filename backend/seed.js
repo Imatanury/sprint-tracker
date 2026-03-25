@@ -1,48 +1,50 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DatabaseSync } from 'node:sqlite';
 import bcrypt from 'bcryptjs';
-import pkg from 'pg';
-const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function setupDatabase() {
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sprint_tracker',
-    });
-
     try {
-        console.log('Connected to PostgreSQL database');
+        const dbPath = path.join(__dirname, 'sprint_tracker.db');
+
+        // Delete existing DB so we start fresh
+        if (fs.existsSync(dbPath)) {
+            fs.unlinkSync(dbPath);
+            console.log('Removed old database file.');
+        }
+
+        const db = new DatabaseSync(dbPath);
+        console.log('Connected to SQLite database at', dbPath);
 
         // Run schema DDL
         const schemaPath = path.join(__dirname, 'db_schema.sql');
         const sqlScript = fs.readFileSync(schemaPath, 'utf8');
         console.log('Executing DDL script...');
-        await pool.query(sqlScript);
+        db.exec(sqlScript);
         console.log('Schema created successfully.');
 
         // ---------- Seed Users ----------
         const salt = await bcrypt.genSalt(10);
 
-        // Admin user (no team)
+        // Admin user  (no team)
         const adminHash = await bcrypt.hash('admin123', salt);
-        await pool.query(
-            `INSERT INTO users (username, password_hash, role, team_id) VALUES ($1, $2, 'Admin', NULL) ON CONFLICT (username) DO NOTHING`,
-            ['admin', adminHash]
-        );
+        db.prepare(
+            `INSERT OR IGNORE INTO users (username, password_hash, role, team_id) VALUES (?, ?, 'Admin', NULL)`
+        ).run(adminHash.length ? 'admin' : 'admin', adminHash);
         console.log('Seeded admin user  (admin / admin123)');
 
         // One Lead per team
-        const { rows: teams } = await pool.query('SELECT id, name FROM teams');
+        const teams = db.prepare('SELECT id, name FROM teams').all();
         for (const team of teams) {
             const leadUser = `lead_${team.name.toLowerCase()}`;
             const leadHash = await bcrypt.hash('lead123', salt);
-            await pool.query(
-                `INSERT INTO users (username, password_hash, role, team_id) VALUES ($1, $2, 'Lead', $3) ON CONFLICT (username) DO NOTHING`,
-                [leadUser, leadHash, team.id]
-            );
+            db.prepare(
+                `INSERT OR IGNORE INTO users (username, password_hash, role, team_id) VALUES (?, ?, 'Lead', ?)`
+            ).run(leadUser, leadHash, team.id);
             console.log(`Seeded Lead: ${leadUser} / lead123  (team: ${team.name})`);
         }
 
@@ -50,10 +52,9 @@ async function setupDatabase() {
         for (const team of teams) {
             const devUser = `dev_${team.name.toLowerCase()}`;
             const devHash = await bcrypt.hash('dev123', salt);
-            await pool.query(
-                `INSERT INTO users (username, password_hash, role, team_id) VALUES ($1, $2, 'Developer', $3) ON CONFLICT (username) DO NOTHING`,
-                [devUser, devHash, team.id]
-            );
+            db.prepare(
+                `INSERT OR IGNORE INTO users (username, password_hash, role, team_id) VALUES (?, ?, 'Developer', ?)`
+            ).run(devUser, devHash, team.id);
             console.log(`Seeded Developer: ${devUser} / dev123  (team: ${team.name})`);
         }
 
@@ -67,26 +68,22 @@ async function setupDatabase() {
             { story_id: 205240, sprint_id: 'Sprint 26-04', team_id: 1, work_item_type: 'User Story', title: 'Notification preferences API', assigned_to: 'dev_philomath', state: 'New', tags: 'API,Notifications', status_remarks: '' },
         ];
 
-        const storyQuery = `
-            INSERT INTO user_stories
+        const storyStmt = db.prepare(`
+            INSERT OR IGNORE INTO user_stories
             (story_id, sprint_id, team_id, work_item_type, title, assigned_to, state, tags, status_remarks)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT (story_id) DO NOTHING
-        `;
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
         for (const s of sampleStories) {
-            await pool.query(storyQuery, [
-                s.story_id, s.sprint_id, s.team_id, s.work_item_type, s.title, s.assigned_to, s.state, s.tags, s.status_remarks
-            ]);
+            storyStmt.run(s.story_id, s.sprint_id, s.team_id, s.work_item_type, s.title, s.assigned_to, s.state, s.tags, s.status_remarks);
         }
         console.log(`Seeded ${sampleStories.length} sample user stories.`);
 
+        db.close();
         console.log('\n✅ Database seed completed successfully.');
     } catch (error) {
         console.error('Error setting up database schema:', error);
         process.exit(1);
-    } finally {
-        await pool.end();
     }
 }
 

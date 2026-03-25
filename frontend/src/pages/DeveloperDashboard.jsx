@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Select, Badge, StatCard, Spinner, TimeRangeToggle, StoryDetailModal, sprintToDate } from '../components/ui';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = 'http://localhost:5000/api';
 
 const latestSprint = (stories) => {
     const ids = [...new Set(stories.map(s => s.sprint_id).filter(Boolean))];

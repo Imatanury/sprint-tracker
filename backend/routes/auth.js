@@ -8,8 +8,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey_for_development_onl
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const { rows } = await req.db.query('SELECT * FROM users WHERE username = $1', [username]);
-        const user = rows[0];
+        const stmt = req.db.prepare('SELECT * FROM users WHERE username = ?');
+        const user = stmt.get(username);
 
         if (!user) {
             return res.status(401).json({ message: 'Invalid credentials' });
@@ -51,11 +51,11 @@ export const verifyAuth = (req, res, next) => {
     }
 };
 
-router.get('/me', verifyAuth, async (req, res) => {
+router.get('/me', verifyAuth, (req, res) => {
     try {
         if (req.user.team_id) {
-            const { rows } = await req.db.query('SELECT * FROM teams WHERE id = $1', [req.user.team_id]);
-            const team = rows[0];
+            const stmt = req.db.prepare('SELECT * FROM teams WHERE id = ?');
+            const team = stmt.get(req.user.team_id);
             return res.json({ user: req.user, team });
         }
         res.json({ user: req.user });

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Select, Badge, StatCard, Spinner, TimeRangeToggle, StoryDetailModal, sprintToDate } from '../components/ui';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = 'http://localhost:5000/api';
 
 /** Sort sprint IDs descending, e.g. "Sprint 26-06" > "Sprint 26-05" */
 const latestSprint = (stories) => {

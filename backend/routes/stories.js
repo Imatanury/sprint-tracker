@@ -4,9 +4,10 @@ import { verifyAuth } from './auth.js';
 const router = express.Router();
 
 // GET /api/sprints — distinct sprint IDs for filter dropdowns
-router.get('/sprints', verifyAuth, async (req, res) => {
+router.get('/sprints', verifyAuth, (req, res) => {
     try {
-        const { rows } = await req.db.query('SELECT DISTINCT sprint_id FROM user_stories ORDER BY sprint_id DESC');
+        const stmt = req.db.prepare('SELECT DISTINCT sprint_id FROM user_stories ORDER BY sprint_id DESC');
+        const rows = stmt.all();
         res.json(rows.map(r => r.sprint_id));
     } catch (error) {
         console.error('Sprints fetch error', error);
@@ -15,7 +16,7 @@ router.get('/sprints', verifyAuth, async (req, res) => {
 });
 
 // GET /api/stories — role-scoped stories with optional filtering
-router.get('/stories', verifyAuth, async (req, res) => {
+router.get('/stories', verifyAuth, (req, res) => {
     try {
         const { role, team_id, username } = req.user;
         const { team_ids, sprint_id } = req.query;
@@ -27,25 +28,24 @@ router.get('/stories', verifyAuth, async (req, res) => {
       WHERE 1=1
     `;
         const values = [];
-        let paramIndex = 1;
 
         if (role === 'Admin') {
             // Full access — apply optional team_ids filter from query params
             if (team_ids) {
                 const ids = team_ids.split(',').map(Number).filter(Boolean);
                 if (ids.length > 0) {
-                    const placeholders = ids.map(() => `$${paramIndex++}`).join(',');
+                    const placeholders = ids.map(() => '?').join(',');
                     query += ` AND us.team_id IN (${placeholders})`;
                     values.push(...ids);
                 }
             }
         } else if (role === 'Lead') {
             // Scoped to Lead's own team — team_ids query param is ignored for security
-            query += ` AND us.team_id = $${paramIndex++}`;
+            query += ` AND us.team_id = ?`;
             values.push(team_id);
         } else if (role === 'Developer') {
             // Scoped to stories where assigned_to matches the developer's username
-            query += ` AND us.assigned_to = $${paramIndex++}`;
+            query += ` AND us.assigned_to = ?`;
             values.push(username);
         } else {
             return res.status(403).json({ message: 'Forbidden: unrecognised role' });
@@ -53,13 +53,14 @@ router.get('/stories', verifyAuth, async (req, res) => {
 
         // Sprint filter — available to Admin and Lead (Developer has no filter UI)
         if (sprint_id && role !== 'Developer') {
-            query += ` AND us.sprint_id = $${paramIndex++}`;
+            query += ` AND us.sprint_id = ?`;
             values.push(sprint_id);
         }
 
         query += ' ORDER BY us.updated_at DESC';
 
-        const { rows } = await req.db.query(query, values);
+        const stmt = req.db.prepare(query);
+        const rows = stmt.all(...values);
         res.json(rows);
     } catch (error) {
         console.error('Fetch stories error', error);
@@ -68,7 +69,7 @@ router.get('/stories', verifyAuth, async (req, res) => {
 });
 
 // POST /api/stories — create or update a story
-router.post('/stories', verifyAuth, async (req, res) => {
+router.post('/stories', verifyAuth, (req, res) => {
     try {
         if (req.user.role === 'Developer') {
             // Developers can only submit for their own team
@@ -92,19 +93,19 @@ router.post('/stories', verifyAuth, async (req, res) => {
         test_plan_url, test_run_url, status_remarks,
         updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
       )
-      ON CONFLICT (story_id) DO UPDATE SET
-        sprint_id = EXCLUDED.sprint_id,
-        team_id = EXCLUDED.team_id,
-        work_item_type = EXCLUDED.work_item_type,
-        title = EXCLUDED.title,
-        assigned_to = EXCLUDED.assigned_to,
-        state = EXCLUDED.state,
-        tags = EXCLUDED.tags,
-        test_plan_url = EXCLUDED.test_plan_url,
-        test_run_url = EXCLUDED.test_run_url,
-        status_remarks = EXCLUDED.status_remarks,
+      ON CONFLICT(story_id) DO UPDATE SET
+        sprint_id = excluded.sprint_id,
+        team_id = excluded.team_id,
+        work_item_type = excluded.work_item_type,
+        title = excluded.title,
+        assigned_to = excluded.assigned_to,
+        state = excluded.state,
+        tags = excluded.tags,
+        test_plan_url = excluded.test_plan_url,
+        test_run_url = excluded.test_run_url,
+        status_remarks = excluded.status_remarks,
         updated_at = CURRENT_TIMESTAMP;
     `;
 
@@ -114,10 +115,11 @@ router.post('/stories', verifyAuth, async (req, res) => {
             test_plan_url || null, test_run_url || null, status_remarks || null
         ];
 
-        await req.db.query(query, stmtValues);
+        const stmt = req.db.prepare(query);
+        stmt.run(...stmtValues);
 
-        const { rows } = await req.db.query('SELECT * FROM user_stories WHERE story_id = $1', [story_id]);
-        const newStory = rows[0];
+        const getStmt = req.db.prepare('SELECT * FROM user_stories WHERE story_id = ?');
+        const newStory = getStmt.get(story_id);
 
         res.status(201).json(newStory);
     } catch (error) {
