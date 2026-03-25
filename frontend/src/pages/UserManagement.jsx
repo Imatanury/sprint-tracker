@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Label, Select, Alert, Modal, Spinner, Badge } from '../components/ui';
-
-const API = 'http://localhost:5000/api';
+import AdminResetPasswordModal from '../components/AdminResetPasswordModal';
+import { KeyRound } from 'lucide-react';
+const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 export default function UserManagement() {
     const { user } = useAuth();
@@ -11,6 +12,7 @@ export default function UserManagement() {
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
+    const [resetTargetUser, setResetTargetUser] = useState(null);
 
     // New user form
     const [newUser, setNewUser] = useState({
@@ -156,16 +158,28 @@ export default function UserManagement() {
                                         <td className="p-3"><Badge variant={roleBadge(u.role)}>{u.role}</Badge></td>
                                         <td className="p-3 text-[hsl(var(--muted-foreground))]">{u.team_name || '—'}</td>
                                         <td className="p-3 text-right">
-                                            {u.id !== user.id && (
+                                            <div className="flex items-center justify-end gap-1">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleDelete(u.id, u.username)}
-                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => setResetTargetUser({ id: u.id, username: u.username })}
+                                                    className="text-[hsl(var(--muted-foreground))] hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 px-2"
+                                                    title="Reset Password"
                                                 >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                    <KeyRound size={16} />
                                                 </Button>
-                                            )}
+                                                {u.id !== user.id && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDelete(u.id, u.username)}
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2"
+                                                        title="Delete User"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -230,6 +244,12 @@ export default function UserManagement() {
                     </div>
                 </form>
             </Modal>
+
+            <AdminResetPasswordModal 
+                targetUser={resetTargetUser} 
+                onClose={() => setResetTargetUser(null)} 
+                onSuccess={(msg) => setMessage({ text: msg, type: 'success' })} 
+            />
         </div>
     );
 }

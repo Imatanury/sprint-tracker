@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button, Input, Card, Label, Select, Alert, Spinner, Textarea, Badge } from '../components/ui';
 
-const API = 'http://localhost:5000/api';
+const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 export default function DeveloperForm() {
     const { user } = useAuth();

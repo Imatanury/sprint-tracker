@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Card, Button, Select, Badge, StatCard, Spinner, TimeRangeToggle, StoryDetailModal, sprintToDate } from '../components/ui';
-
-const API = 'http://localhost:5000/api';
+import { Card, Button, Select, Badge, StatCard, Spinner, TimeRangeToggle, StoryDetailModal, sprintToDate, Alert } from '../components/ui';
+import DataClearModal from '../components/DataClearModal';
+import { Trash2 } from 'lucide-react';
+const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 /** Sort sprint IDs descending, e.g. "Sprint 26-06" > "Sprint 26-05" */
 const latestSprint = (stories) => {
@@ -41,6 +42,8 @@ export default function MasterDashboard() {
 
     // Detail panel
     const [selectedStory, setSelectedStory] = useState(null);
+    const [showDataClearModal, setShowDataClearModal] = useState(false);
+    const [dashboardMessage, setDashboardMessage] = useState({ text: '', type: '' });
 
     // Fetch everything once on mount
     useEffect(() => {
@@ -159,11 +162,29 @@ export default function MasterDashboard() {
                         {role === 'Lead'  && `Showing stories for your team: ${leadTeamName ?? '…'}`}
                     </p>
                 </div>
-                <Button id="export-csv-btn" onClick={exportCSV} disabled={displayedStories.length === 0}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                    Export CSV
-                </Button>
+                <div className="flex items-center gap-3">
+                    {role === 'Admin' && (
+                        <Button 
+                            variant="outline" 
+                            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/40 dark:hover:bg-red-900/20"
+                            onClick={() => setShowDataClearModal(true)}
+                        >
+                            <Trash2 size={16} className="mr-2" />
+                            Manage Data
+                        </Button>
+                    )}
+                    <Button id="export-csv-btn" onClick={exportCSV} disabled={displayedStories.length === 0}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        Export CSV
+                    </Button>
+                </div>
             </div>
+
+            {dashboardMessage.text && (
+                <Alert variant={dashboardMessage.type} className="mb-6 animate-slide-down">
+                    {dashboardMessage.text}
+                </Alert>
+            )}
 
             {/* Stat Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fade-in">
@@ -331,8 +352,18 @@ export default function MasterDashboard() {
                 )}
             </Card>
 
-            {/* Story Detail Modal */}
             <StoryDetailModal story={selectedStory} onClose={() => setSelectedStory(null)} />
+
+            <DataClearModal 
+                isOpen={showDataClearModal} 
+                onClose={() => setShowDataClearModal(false)} 
+                sprints={sprints} 
+                onSuccess={(msg) => {
+                    setDashboardMessage({ text: msg, type: 'success' });
+                    fetchAll();
+                    setTimeout(() => setDashboardMessage({ text: '', type: '' }), 5000);
+                }} 
+            />
         </div>
     );
 }

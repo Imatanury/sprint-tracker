@@ -7,6 +7,7 @@ import usersRoutes from './routes/users.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DatabaseSync } from 'node:sqlite';
+import { execSync } from 'child_process';
 
 dotenv.config();
 
@@ -15,7 +16,22 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(cors());
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'https://imatanury.github.io',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g., curl, Postman)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS policy: origin ${origin} not allowed.`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 
 // Database connection setup using built-in node:sqlite
@@ -52,6 +68,22 @@ app.get('/api/health', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
+async function initDb() {
+    try {
+        const row = db.prepare('SELECT COUNT(*) as count FROM users').get();
+        if (row.count === 0) {
+            console.log('Database empty. Running seed on startup...');
+            execSync('npm run seed', { stdio: 'inherit' });
+            console.log('Database seeded on startup.');
+        }
+    } catch (err) {
+        console.log('Schema might be missing. Running seed on startup...');
+        execSync('npm run seed', { stdio: 'inherit' });
+        console.log('Database seeded on startup.');
+    }
+}
+
+await initDb();
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

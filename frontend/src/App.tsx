@@ -7,6 +7,7 @@ import DeveloperDashboard from './pages/DeveloperDashboard';
 import MasterDashboard from './pages/MasterDashboard';
 import UserManagement from './pages/UserManagement';
 import { Button, Spinner } from './components/ui';
+import ChangePasswordModal from './components/ChangePasswordModal';
 
 /* ─────────────────────── SIDEBAR NAV ─────────────────────── */
 const Sidebar = ({ collapsed, setCollapsed }) => {
@@ -42,16 +43,16 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                     </NavLink>
                 )}
                 {user?.role === 'Developer' && (
-                    <>
-                        <NavLink to="/developer/dashboard" className={linkClass}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-                            {!collapsed && <span>Dashboard</span>}
-                        </NavLink>
-                        <NavLink to="/developer" className={linkClass}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
-                            {!collapsed && <span>Submit Update</span>}
-                        </NavLink>
-                    </>
+                    <NavLink to="/developer/dashboard" className={linkClass}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                        {!collapsed && <span>Dashboard</span>}
+                    </NavLink>
+                )}
+                {(user?.role === 'Developer' || isLead) && (
+                    <NavLink to="/developer" className={linkClass}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
+                        {!collapsed && <span>Submit Update</span>}
+                    </NavLink>
                 )}
                 {isAdmin && (
                     <NavLink to="/admin/users" className={linkClass}>
@@ -79,22 +80,50 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
 /* ─────────────────────── TOP HEADER ─────────────────────── */
 const TopBar = () => {
     const { user, logout } = useAuth();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
 
     return (
         <header className="h-14 bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] flex items-center justify-end px-6 gap-4">
-            <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[hsl(243,75%,59%)] to-[hsl(262,83%,58%)] flex items-center justify-center text-white text-xs font-bold">
+            <div className="flex items-center gap-3 relative">
+                <div 
+                    className="flex items-center gap-2 cursor-pointer hover:bg-[hsl(var(--secondary))] p-1 pr-3 rounded-full transition-colors"
+                    onClick={() => setMenuOpen(!menuOpen)}
+                >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[hsl(243,75%,59%)] to-[hsl(262,83%,58%)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                         {user.username.charAt(0).toUpperCase()}
                     </div>
-                    <div className="hidden sm:block">
+                    <div className="hidden sm:block text-left">
                         <p className="text-sm font-medium leading-none">{user.username}</p>
                         <p className="text-xs text-[hsl(var(--muted-foreground))]">{user.role}</p>
                     </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`ml-1 text-[hsl(var(--muted-foreground))] transition-transform ${menuOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
-                <Button onClick={logout} variant="ghost" size="sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-                </Button>
+                
+                {menuOpen && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                        <div className="absolute top-12 right-0 w-48 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl shadow-xl z-50 py-1 overflow-hidden animate-fade-in">
+                            <button 
+                                onClick={() => { setMenuOpen(false); setShowPasswordModal(true); }}
+                                className="w-full text-left px-4 py-2.5 text-sm text-[hsl(var(--foreground))] hover:bg-[hsl(var(--secondary))] transition-colors flex items-center gap-3 cursor-pointer"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[hsl(var(--muted-foreground))]"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                Change Password
+                            </button>
+                            <div className="h-px bg-[hsl(var(--border))] my-1"></div>
+                            <button 
+                                onClick={logout}
+                                className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-3 cursor-pointer"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                                Logout
+                            </button>
+                        </div>
+                    </>
+                )}
+                
+                <ChangePasswordModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
             </div>
         </header>
     );
@@ -149,7 +178,7 @@ function App() {
                     <Route path="/login" element={<Login />} />
 
                     <Route path="/developer" element={
-                        <PrivateRoute roles={['Developer']}>
+                        <PrivateRoute roles={['Developer', 'Lead']}>
                             <DeveloperForm />
                         </PrivateRoute>
                     } />

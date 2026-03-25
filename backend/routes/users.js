@@ -93,4 +93,83 @@ router.delete('/users/:id', verifyAuth, adminOnly, (req, res) => {
     }
 });
 
+// PATCH /api/users/me/password — change own password
+router.patch('/users/me/password', verifyAuth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+        
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+        if (newPassword.length < 8) {
+            return res.status(400).json({ message: 'New password must be at least 8 characters' });
+        }
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: 'Passwords do not match' });
+        }
+        if (currentPassword === newPassword) {
+            return res.status(400).json({ message: 'New password must be different from current password' });
+        }
+
+        const stmt = req.db.prepare('SELECT password_hash FROM users WHERE id = ?');
+        const user = stmt.get(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Incorrect current password' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const newHash = await bcrypt.hash(newPassword, salt);
+
+        const updateStmt = req.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+        updateStmt.run(newHash, req.user.id);
+
+        res.json({ message: 'Password updated successfully.' });
+    } catch (error) {
+        console.error('Change password error', error);
+        res.status(500).json({ message: 'Error updating password' });
+    }
+});
+
+// PATCH /api/users/:id/password — admin force-reset password
+router.patch('/users/:id/password', verifyAuth, adminOnly, async (req, res) => {
+    try {
+        const { newPassword, confirmPassword } = req.body;
+        const targetId = parseInt(req.params.id, 10);
+        
+        if (!newPassword || !confirmPassword) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+        if (newPassword.length < 8) {
+            return res.status(400).json({ message: 'New password must be at least 8 characters' });
+        }
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: 'Passwords do not match' });
+        }
+
+        const stmt = req.db.prepare('SELECT id FROM users WHERE id = ?');
+        const user = stmt.get(targetId);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const newHash = await bcrypt.hash(newPassword, salt);
+
+        const updateStmt = req.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+        updateStmt.run(newHash, targetId);
+
+        res.json({ message: 'User password has been reset successfully.' });
+    } catch (error) {
+        console.error('Reset password error', error);
+        res.status(500).json({ message: 'Error resetting password' });
+    }
+});
+
 export default router;

@@ -71,9 +71,13 @@ router.get('/stories', verifyAuth, (req, res) => {
 // POST /api/stories — create or update a story
 router.post('/stories', verifyAuth, (req, res) => {
     try {
-        if (req.user.role === 'Developer') {
-            // Developers can only submit for their own team
+        if (['Developer', 'Lead'].includes(req.user.role)) {
+            // Developers and Leads can only submit for their own team
             req.body.team_id = req.user.team_id;
+        }
+
+        if (!['Developer', 'Lead'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Forbidden: Insufficient privileges to submit updates.' });
         }
 
         const {
@@ -125,6 +129,69 @@ router.post('/stories', verifyAuth, (req, res) => {
     } catch (error) {
         console.error('Upsert story error', error);
         res.status(500).json({ message: 'Error saving story details' });
+    }
+});
+
+// Middleware: Admin only
+const adminOnly = (req, res, next) => {
+    if (req.user.role !== 'Admin') {
+        return res.status(403).json({ message: 'Forbidden: Admin access required' });
+    }
+    next();
+};
+
+// DELETE /api/stories/sprint/:sprintId — delete all stories for a sprint
+router.delete('/stories/sprint/:sprintId', verifyAuth, adminOnly, (req, res) => {
+    try {
+        const { sprintId } = req.params;
+        const stmt = req.db.prepare('DELETE FROM user_stories WHERE sprint_id = ?');
+        const result = stmt.run(sprintId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: `No stories found for sprint ${sprintId}` });
+        }
+
+        res.json({ message: `Deleted ${result.changes} stories from ${sprintId}.`, deleted: result.changes });
+    } catch (error) {
+        console.error('Delete sprint stories error', error);
+        res.status(500).json({ message: 'Error deleting sprint stories' });
+    }
+});
+
+// DELETE /api/stories/before-date — delete all stories created before a date
+router.delete('/stories/before-date', verifyAuth, adminOnly, (req, res) => {
+    try {
+        const { beforeDate } = req.body;
+        if (!beforeDate) {
+            return res.status(400).json({ message: 'beforeDate is required' });
+        }
+        
+        // Append time portion to ensure it covers the start of the day if just YYYY-MM-DD
+        const dateStr = beforeDate.includes('T') ? beforeDate : `${beforeDate} 00:00:00`;
+        
+        const stmt = req.db.prepare('DELETE FROM user_stories WHERE datetime(created_at) < datetime(?)');
+        const result = stmt.run(dateStr);
+
+        res.json({ message: `Deleted ${result.changes} stories created before ${beforeDate}.`, deleted: result.changes });
+    } catch (error) {
+        console.error('Delete before date error', error);
+        res.status(500).json({ message: 'Error deleting stories before date' });
+    }
+});
+
+// DELETE /api/stories/all — clear all data
+router.delete('/stories/all', verifyAuth, adminOnly, (req, res) => {
+    try {
+        const countStmt = req.db.prepare('SELECT COUNT(*) as count FROM user_stories');
+        const { count } = countStmt.get();
+
+        const delStmt = req.db.prepare('DELETE FROM user_stories');
+        delStmt.run();
+
+        res.json({ message: `All sprint data has been cleared. ${count} stories deleted.`, deleted: count });
+    } catch (error) {
+        console.error('Clear all stories error', error);
+        res.status(500).json({ message: 'Error clearing all stories' });
     }
 });
 
