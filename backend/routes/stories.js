@@ -4,19 +4,18 @@ import { verifyAuth } from './auth.js';
 const router = express.Router();
 
 // GET /api/sprints — distinct sprint IDs for filter dropdowns
-router.get('/sprints', verifyAuth, (req, res) => {
+router.get('/sprints', verifyAuth, (req, res, next) => {
     try {
         const stmt = req.db.prepare('SELECT DISTINCT sprint_id FROM user_stories ORDER BY sprint_id DESC');
         const rows = stmt.all();
         res.json(rows.map(r => r.sprint_id));
     } catch (error) {
-        console.error('Sprints fetch error', error);
-        res.status(500).json({ message: 'Error fetching sprints' });
+        next(error);
     }
 });
 
 // GET /api/stories — role-scoped stories with optional filtering
-router.get('/stories', verifyAuth, (req, res) => {
+router.get('/stories', verifyAuth, (req, res, next) => {
     try {
         const { role, team_id, username } = req.user;
         const { team_ids, sprint_id } = req.query;
@@ -63,13 +62,12 @@ router.get('/stories', verifyAuth, (req, res) => {
         const rows = stmt.all(...values);
         res.json(rows);
     } catch (error) {
-        console.error('Fetch stories error', error);
-        res.status(500).json({ message: 'Error fetching stories' });
+        next(error);
     }
 });
 
 // POST /api/stories — create or update a story
-router.post('/stories', verifyAuth, (req, res) => {
+router.post('/stories', verifyAuth, (req, res, next) => {
     try {
         if (['Developer', 'Lead'].includes(req.user.role)) {
             // Developers and Leads can only submit for their own team
@@ -127,8 +125,7 @@ router.post('/stories', verifyAuth, (req, res) => {
 
         res.status(201).json(newStory);
     } catch (error) {
-        console.error('Upsert story error', error);
-        res.status(500).json({ message: 'Error saving story details' });
+        next(error);
     }
 });
 
@@ -141,7 +138,7 @@ const adminOnly = (req, res, next) => {
 };
 
 // DELETE /api/stories/sprint/:sprintId — delete all stories for a sprint
-router.delete('/stories/sprint/:sprintId', verifyAuth, adminOnly, (req, res) => {
+router.delete('/stories/sprint/:sprintId', verifyAuth, adminOnly, (req, res, next) => {
     try {
         const { sprintId } = req.params;
         const stmt = req.db.prepare('DELETE FROM user_stories WHERE sprint_id = ?');
@@ -153,13 +150,12 @@ router.delete('/stories/sprint/:sprintId', verifyAuth, adminOnly, (req, res) => 
 
         res.json({ message: `Deleted ${result.changes} stories from ${sprintId}.`, deleted: result.changes });
     } catch (error) {
-        console.error('Delete sprint stories error', error);
-        res.status(500).json({ message: 'Error deleting sprint stories' });
+        next(error);
     }
 });
 
 // DELETE /api/stories/before-date — delete all stories created before a date
-router.delete('/stories/before-date', verifyAuth, adminOnly, (req, res) => {
+router.delete('/stories/before-date', verifyAuth, adminOnly, (req, res, next) => {
     try {
         const { beforeDate } = req.body;
         if (!beforeDate) {
@@ -174,13 +170,12 @@ router.delete('/stories/before-date', verifyAuth, adminOnly, (req, res) => {
 
         res.json({ message: `Deleted ${result.changes} stories created before ${beforeDate}.`, deleted: result.changes });
     } catch (error) {
-        console.error('Delete before date error', error);
-        res.status(500).json({ message: 'Error deleting stories before date' });
+        next(error);
     }
 });
 
 // DELETE /api/stories/all — clear all data
-router.delete('/stories/all', verifyAuth, adminOnly, (req, res) => {
+router.delete('/stories/all', verifyAuth, adminOnly, (req, res, next) => {
     try {
         const countStmt = req.db.prepare('SELECT COUNT(*) as count FROM user_stories');
         const { count } = countStmt.get();
@@ -190,8 +185,7 @@ router.delete('/stories/all', verifyAuth, adminOnly, (req, res) => {
 
         res.json({ message: `All sprint data has been cleared. ${count} stories deleted.`, deleted: count });
     } catch (error) {
-        console.error('Clear all stories error', error);
-        res.status(500).json({ message: 'Error clearing all stories' });
+        next(error);
     }
 });
 

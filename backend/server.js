@@ -32,6 +32,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.options('*', cors());
 app.use(express.json());
 
 // Database connection setup using built-in node:sqlite
@@ -50,20 +51,30 @@ app.use('/api', authRoutes);
 app.use('/api', storiesRoutes);
 app.use('/api', usersRoutes);
 
-app.get('/api/teams', (req, res) => {
+app.get('/api/teams', (req, res, next) => {
     try {
         const stmt = req.db.prepare('SELECT * FROM teams');
         const rows = stmt.all();
         res.json(rows);
     } catch (error) {
-        console.error('Teams fetch error', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        next(error);
     }
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', (req, res, next) => {
+    try {
+        res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// MUST be the last app.use() call — after all routes
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Internal server error.';
+  res.status(status).json({ message });
 });
 
 const PORT = process.env.PORT || 5000;

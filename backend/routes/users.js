@@ -13,7 +13,7 @@ const adminOnly = (req, res, next) => {
 };
 
 // GET /api/users — list all users (Admin only)
-router.get('/users', verifyAuth, adminOnly, (req, res) => {
+router.get('/users', verifyAuth, adminOnly, (req, res, next) => {
     try {
         const stmt = req.db.prepare(`
             SELECT u.id, u.username, u.role, u.team_id, t.name as team_name
@@ -24,13 +24,12 @@ router.get('/users', verifyAuth, adminOnly, (req, res) => {
         const rows = stmt.all();
         res.json(rows);
     } catch (error) {
-        console.error('Users fetch error', error);
-        res.status(500).json({ message: 'Error fetching users' });
+        next(error);
     }
 });
 
 // POST /api/users — create a new user (Admin only)
-router.post('/users', verifyAuth, adminOnly, async (req, res) => {
+router.post('/users', verifyAuth, adminOnly, async (req, res, next) => {
     try {
         const { username, password, role, team_id } = req.body;
 
@@ -64,13 +63,12 @@ router.post('/users', verifyAuth, adminOnly, async (req, res) => {
         if (error.message?.includes('UNIQUE')) {
             return res.status(409).json({ message: 'Username already exists' });
         }
-        console.error('Create user error', error);
-        res.status(500).json({ message: 'Error creating user' });
+        next(error);
     }
 });
 
 // DELETE /api/users/:id — remove a user (Admin only)
-router.delete('/users/:id', verifyAuth, adminOnly, (req, res) => {
+router.delete('/users/:id', verifyAuth, adminOnly, (req, res, next) => {
     try {
         const userId = parseInt(req.params.id, 10);
 
@@ -88,13 +86,12 @@ router.delete('/users/:id', verifyAuth, adminOnly, (req, res) => {
 
         res.json({ message: 'User deleted successfully' });
     } catch (error) {
-        console.error('Delete user error', error);
-        res.status(500).json({ message: 'Error deleting user' });
+        next(error);
     }
 });
 
 // PATCH /api/users/me/password — change own password
-router.patch('/users/me/password', verifyAuth, async (req, res) => {
+router.patch('/users/me/password', verifyAuth, async (req, res, next) => {
     try {
         const { currentPassword, newPassword, confirmPassword } = req.body;
         
@@ -131,13 +128,12 @@ router.patch('/users/me/password', verifyAuth, async (req, res) => {
 
         res.json({ message: 'Password updated successfully.' });
     } catch (error) {
-        console.error('Change password error', error);
-        res.status(500).json({ message: 'Error updating password' });
+        next(error);
     }
 });
 
 // PATCH /api/users/:id/password — admin force-reset password
-router.patch('/users/:id/password', verifyAuth, adminOnly, async (req, res) => {
+router.patch('/users/:id/password', verifyAuth, adminOnly, async (req, res, next) => {
     try {
         const { newPassword, confirmPassword } = req.body;
         const targetId = parseInt(req.params.id, 10);
@@ -167,8 +163,7 @@ router.patch('/users/:id/password', verifyAuth, adminOnly, async (req, res) => {
 
         res.json({ message: 'User password has been reset successfully.' });
     } catch (error) {
-        console.error('Reset password error', error);
-        res.status(500).json({ message: 'Error resetting password' });
+        next(error);
     }
 });
 

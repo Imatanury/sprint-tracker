@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey_for_development_only';
 
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
     const { username, password } = req.body;
     try {
         const stmt = req.db.prepare('SELECT * FROM users WHERE username = ?');
@@ -29,8 +29,7 @@ router.post('/login', async (req, res) => {
 
         res.json({ token, user: { id: user.id, username: user.username, role: user.role, team_id: user.team_id } });
     } catch (error) {
-        console.error('Login error', error);
-        res.status(500).json({ message: 'Server error' });
+        next(error);
     }
 });
 
@@ -51,7 +50,7 @@ export const verifyAuth = (req, res, next) => {
     }
 };
 
-router.get('/me', verifyAuth, (req, res) => {
+router.get('/me', verifyAuth, (req, res, next) => {
     try {
         if (req.user.team_id) {
             const stmt = req.db.prepare('SELECT * FROM teams WHERE id = ?');
@@ -60,7 +59,7 @@ router.get('/me', verifyAuth, (req, res) => {
         }
         res.json({ user: req.user });
     } catch (error) {
-        res.status(500).json({ message: 'Server error fetching user details' });
+        next(error);
     }
 });
 
