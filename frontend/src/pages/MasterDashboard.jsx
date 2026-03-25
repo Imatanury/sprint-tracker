@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { Card, Button, Select, Badge, StatCard, Spinner, TimeRangeToggle, StoryDetailModal, sprintToDate, Alert } from '../components/ui';
 import DataClearModal from '../components/DataClearModal';
 import { Trash2 } from 'lucide-react';
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 /** Sort sprint IDs descending, e.g. "Sprint 26-06" > "Sprint 26-05" */
 const latestSprint = (stories) => {
@@ -58,8 +59,18 @@ export default function MasterDashboard() {
                 fetch(`${API}/teams`,   { headers: { Authorization: `Bearer ${user.token}` } }),
                 fetch(`${API}/sprints`, { headers: { Authorization: `Bearer ${user.token}` } }),
             ]);
+            const checkRes = async (res) => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    let msg = 'An unexpected error occurred.';
+                    try { msg = JSON.parse(text).message || msg; } catch {}
+                    throw new Error(msg);
+                }
+                return res.json();
+            };
+
             const [storiesData, teamsData, sprintsData] = await Promise.all([
-                storiesRes.json(), teamsRes.json(), sprintsRes.json()
+                checkRes(storiesRes), checkRes(teamsRes), checkRes(sprintsRes)
             ]);
 
             const stories = Array.isArray(storiesData) ? storiesData : [];

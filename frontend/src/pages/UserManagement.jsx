@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Label, Select, Alert, Modal, Spinner, Badge } from '../components/ui';
 import AdminResetPasswordModal from '../components/AdminResetPasswordModal';
 import { KeyRound } from 'lucide-react';
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 export default function UserManagement() {
     const { user } = useAuth();
@@ -33,6 +34,12 @@ export default function UserManagement() {
             const res = await fetch(`${API}/users`, {
                 headers: { Authorization: `Bearer ${user.token}` }
             });
+            if (!res.ok) {
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message);
+            }
             const data = await res.json();
             setUsers(Array.isArray(data) ? data : []);
         } catch (e) {
@@ -47,6 +54,12 @@ export default function UserManagement() {
             const res = await fetch(`${API}/teams`, {
                 headers: { Authorization: `Bearer ${user.token}` }
             });
+            if (!res.ok) {
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message);
+            }
             const data = await res.json();
             setTeams(data);
         } catch (e) {
@@ -68,9 +81,13 @@ export default function UserManagement() {
                 body: JSON.stringify(newUser)
             });
 
+            if (!res.ok) {
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message);
+            }
             const data = await res.json();
-
-            if (!res.ok) throw new Error(data.message || 'Failed to create user');
 
             setMessage({ text: `User "${data.username}" created successfully!`, type: 'success' });
             setShowModal(false);
@@ -91,9 +108,12 @@ export default function UserManagement() {
             });
 
             if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.message || 'Delete failed');
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message);
             }
+            const data = await res.json();
 
             setMessage({ text: `User "${username}" deleted.`, type: 'success' });
             fetchUsers();

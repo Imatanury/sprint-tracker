@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Modal, Button, Input, Select, Alert, Spinner } from './ui';
 
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 export default function DataClearModal({ isOpen, onClose, sprints, onSuccess }) {
     const { user } = useAuth();
@@ -61,9 +62,13 @@ export default function DataClearModal({ isOpen, onClose, sprints, onSuccess }) 
             if (body) reqOptions.body = body;
 
             const res = await fetch(url, reqOptions);
+            if (!res.ok) {
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message || 'Failed to delete data');
+            }
             const data = await res.json();
-
-            if (!res.ok) throw new Error(data.message || 'Failed to delete data');
 
             if (onSuccess) {
                 onSuccess(`${data.deleted} stories deleted successfully.`);

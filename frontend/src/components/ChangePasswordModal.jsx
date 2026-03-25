@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { Modal, Button, Input, Label, Alert, Spinner } from './ui';
 import { Eye, EyeOff } from 'lucide-react';
 
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 export default function ChangePasswordModal({ isOpen, onClose }) {
     const { user } = useAuth();
@@ -61,9 +62,13 @@ export default function ChangePasswordModal({ isOpen, onClose }) {
                 body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
             });
 
+            if (!res.ok) {
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message || 'Failed to update password');
+            }
             const data = await res.json();
-
-            if (!res.ok) throw new Error(data.message || 'Failed to update password');
 
             setMessage({ text: 'Password updated successfully!', type: 'success' });
             // Close after a brief delay so the user sees the success message

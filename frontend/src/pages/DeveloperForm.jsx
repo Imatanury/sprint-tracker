@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button, Input, Card, Label, Select, Alert, Spinner, Textarea, Badge } from '../components/ui';
 
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 export default function DeveloperForm() {
     const { user } = useAuth();
@@ -28,7 +29,15 @@ export default function DeveloperForm() {
         fetch(`${API}/me`, {
             headers: { Authorization: `Bearer ${user.token}` }
         })
-            .then(res => res.json())
+            .then(async res => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    let msg = 'An unexpected error occurred.';
+                    try { msg = JSON.parse(text).message || msg; } catch {}
+                    throw new Error(msg);
+                }
+                return res.json();
+            })
             .then(data => {
                 if (data.team) setTeamInfo(data.team);
             })
@@ -42,7 +51,15 @@ export default function DeveloperForm() {
         fetch(`${API}/stories`, {
             headers: { Authorization: `Bearer ${user.token}` }
         })
-            .then(res => res.json())
+            .then(async res => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    let msg = 'An unexpected error occurred.';
+                    try { msg = JSON.parse(text).message || msg; } catch {}
+                    throw new Error(msg);
+                }
+                return res.json();
+            })
             .then(data => setRecentStories(Array.isArray(data) ? data.slice(0, 5) : []))
             .catch(() => {});
     };
@@ -67,8 +84,10 @@ export default function DeveloperForm() {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Submission failed');
+                const text = await response.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message || 'Submission failed');
             }
 
             setMessage({ text: '✅ Story submitted successfully!', type: 'success' });

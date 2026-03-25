@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { Modal, Button, Input, Label, Alert, Spinner } from './ui';
 import { Eye, EyeOff } from 'lucide-react';
 
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 export default function AdminResetPasswordModal({ targetUser, onClose, onSuccess }) {
     const { user } = useAuth();
@@ -59,9 +60,13 @@ export default function AdminResetPasswordModal({ targetUser, onClose, onSuccess
                 body: JSON.stringify({ newPassword, confirmPassword })
             });
 
+            if (!res.ok) {
+                const text = await res.text();
+                let message = 'An unexpected error occurred.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message || 'Failed to reset password');
+            }
             const data = await res.json();
-
-            if (!res.ok) throw new Error(data.message || 'Failed to reset password');
 
             if (onSuccess) {
                  onSuccess(`Password for @${targetUser.username} has been reset.`);

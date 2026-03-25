@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Select, Badge, StatCard, Spinner, TimeRangeToggle, StoryDetailModal, sprintToDate } from '../components/ui';
 
-const API = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import { API_BASE } from '../lib/api';
+const API = `${API_BASE}/api`;
 
 const latestSprint = (stories) => {
     const ids = [...new Set(stories.map(s => s.sprint_id).filter(Boolean))];
@@ -44,8 +45,17 @@ export default function DeveloperDashboard() {
                 fetch(`${API}/stories`,  { headers: { Authorization: `Bearer ${user.token}` } }),
                 fetch(`${API}/sprints`,  { headers: { Authorization: `Bearer ${user.token}` } }),
             ]);
+            const checkRes = async (res) => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    let msg = 'An unexpected error occurred.';
+                    try { msg = JSON.parse(text).message || msg; } catch {}
+                    throw new Error(msg);
+                }
+                return res.json();
+            };
             const [storiesData, sprintsData] = await Promise.all([
-                storiesRes.json(), sprintsRes.json()
+                checkRes(storiesRes), checkRes(sprintsRes)
             ]);
 
             const stories = Array.isArray(storiesData) ? storiesData : [];
