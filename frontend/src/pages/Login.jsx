@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../lib/api';
@@ -9,25 +9,70 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isColdStartError, setIsColdStartError] = useState(false);
+    const [countdown, setCountdown] = useState(null);
+    const retryCountRef = useRef(0);
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_SECONDS = 30;
+
     const { login } = useAuth();
     const navigate = useNavigate();
 
+    useEffect(() => {
+        if (!isColdStartError) return;
+        if (retryCountRef.current >= MAX_RETRIES) {
+            setError('Server unavailable. Please try again in a few minutes.');
+            setIsColdStartError(false);
+            setCountdown(null);
+            return;
+        }
+
+        let seconds = RETRY_DELAY_SECONDS;
+        setCountdown(seconds);
+
+        const interval = setInterval(() => {
+            seconds -= 1;
+            setCountdown(seconds);
+            if (seconds <= 0) {
+                clearInterval(interval);
+                retryCountRef.current += 1;
+                handleLogin();
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isColdStartError]);
+
     const handleLogin = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setError('');
+        setIsColdStartError(false);
         setIsLoading(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/login`, {
+            const response = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
             });
 
-            const data = await response.json();
+            const contentType = response.headers.get('content-type');
+            const isJson = contentType && contentType.includes('application/json');
 
             if (!response.ok) {
-                throw new Error(data.message || 'Login failed');
+                if (!isJson) {
+                    throw new Error('The server is waking up. Please wait 30 seconds and try again.');
+                }
+                const text = await response.text();
+                let message = 'Login failed. Please try again.';
+                try { message = JSON.parse(text).message || message; } catch {}
+                throw new Error(message);
             }
+
+            if (!isJson) {
+                throw new Error('The server is waking up. Please wait 30 seconds and try again.');
+            }
+
+            const data = await response.json();
 
             login(data.token);
 
@@ -38,7 +83,11 @@ export default function Login() {
                 navigate('/dashboard');
             }
         } catch (err) {
-            setError(err.message);
+            if (err.message.includes('waking up')) {
+                setIsColdStartError(true);
+            } else {
+                setError(err.message);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -74,6 +123,32 @@ export default function Login() {
                             <Alert variant="error" className="mb-4 animate-slide-down">
                                 {error}
                             </Alert>
+                        )}
+                        
+                        {isColdStartError && (
+                            <div className="mb-4 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 animate-slide-down">
+                                <p className="text-sm font-semibold mb-1 flex items-center">
+                                    <Spinner className="w-4 h-4 mr-2 border-t-amber-800" /> Server is starting up...
+                                </p>
+                                <p className="text-xs mb-3">
+                                    This takes up to 30 seconds on first load. Retrying in <span className="font-bold">{countdown}</span>s.
+                                </p>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="w-full bg-white text-amber-800 border-amber-300 hover:bg-amber-100 hover:text-amber-900"
+                                    onClick={() => {
+                                        retryCountRef.current += 1;
+                                        setCountdown(null);
+                                        setIsColdStartError(false);
+                                        handleLogin();
+                                    }}
+                                    disabled={isLoading}
+                                >
+                                    Retry Now
+                                </Button>
+                            </div>
                         )}
 
                         <form onSubmit={handleLogin} className="space-y-5">

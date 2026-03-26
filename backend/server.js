@@ -46,6 +46,14 @@ app.use((req, res, next) => {
     next();
 });
 
+// Health check — must be unauthenticated and respond instantly
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+    });
+});
+
 // Routes
 app.use('/api', authRoutes);
 app.use('/api', storiesRoutes);
@@ -97,4 +105,17 @@ async function initDb() {
 await initDb();
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    
+    // Self-ping after 10 seconds to warm up DB connection and confirm health
+    if (process.env.NODE_ENV === 'production') {
+        setTimeout(async () => {
+            try {
+                const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+                await fetch(`${url}/health`);
+                console.log('Startup self-ping successful.');
+            } catch {
+                console.log('Startup self-ping failed — server may still be initializing.');
+            }
+        }, 10000);
+    }
 });
