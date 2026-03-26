@@ -32,7 +32,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.options('*', cors());
+app.options(/.*/, cors());
 app.use(express.json());
 
 // Database connection setup using built-in node:sqlite
