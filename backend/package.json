@@ -6,10 +6,10 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "start": "node one-time-setup.js",
-    "start:normal": "node server.js",
-    "seed": "node seed.js",
-    "dev": "node --watch server.js"
+    "start": "node --experimental-sqlite one-time-setup.js",
+    "start:normal": "node --experimental-sqlite server.js",
+    "seed": "node --experimental-sqlite seed.js",
+    "dev": "node --experimental-sqlite --watch server.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
